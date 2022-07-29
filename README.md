@@ -1,10 +1,12 @@
 # structopt
 
-A lovely structopt library for C++, inspired by [TeXitoi/structopt](https://github.com/TeXitoi/structopt) and powered by [tanakh/cmdline](https://github.com/tanakh/cmdline) and ❤️
+A lovely structopt library for C++! Parse command line arguments by defining a struct! ❤️
 
 # Quick Start
 
-So, you want to parse command line arguments by just defining a `struct`? Here you go!
+**Make sure you get a fancy compiler supports C++20!**
+
+So, you want to parse command line arguments by just defining a `struct`? Here we go!
 
 First, let's define a `struct`,
 
@@ -76,7 +78,7 @@ By assigning `\0` to the `short_alias` attribute, we disable the short option na
 
 And yes, the name `long_alias` reminds me. If you want a different long option name, you can `.long_alias = "<new name>"`. `short_alias` works too.
 
-**Attention! If the option is `bool`, `mandatory` and `default_value` will be ignored.**
+**Attention! If the option is `bool`, `mandatory` and `default_value` are not available.**
 
 ```bash
 ❯ ./basic
@@ -88,7 +90,32 @@ options:
   -?, --help    print this message
 ```
 
-Wait wait! I forget to tell you how to parse the command line arguments and use these arguments!
+One more request! I want the input to be restricted within several values. Well, we can achieve it by using `enum`!
+
+```cpp
+// inside struct Option
+// first define available values with an enum
+enum ProtocolType { http, https, ssh, ftp };
+structopt_option(type, ProtocolType)
+{
+  .description = "protocol type",
+  .default_value = ProtocolType::http
+};
+```
+
+That's it! Have a try!
+
+```bash
+❯ ./enum --host github.com --type xyz
+option value is invalid: --type=xyz
+usage: ./enum --host=string [options] ...
+options:
+  -h, --host    host name (string)
+  -t, --type    protocol type (string [=http])
+  -?, --help    print this message
+```
+
+Wait wait! I forgot to tell you how to parse the command line arguments and use these arguments!
 
 ```cpp
 int main(int argc, char *argv[]) {
@@ -105,28 +132,71 @@ Hooray! It's sweet, isn't it? 🎉
 
 Check the complete example in [basic.cpp](examples/basic.cpp). And yes, this example is adapted from the official example in [tanakh/cmdline](https://github.com/tanakh/cmdline).
 
-## Installation
+# Usage
 
-structopt is header-only, but it depends on [tanakh/cmdline](https://github.com/tanakh/cmdline). So make sure you have installed cmdline (header-only too) in your `include` path.
+## Install Manually
 
-## Build Examples
+structopt is header-only, so you can just download [structopt.hpp](include/structopt.hpp) and place it to your `include` path. Since structopt depends on [tanakh/cmdline](https://github.com/tanakh/cmdline),  make sure you have installed cmdline (header-only too) in your `include` path.
 
-To build and run the examples in this repo, you don't have to install cmdline manually. [xmake](https://xmake.io/) will handle this for you. xmake is an amazing build utility for C/C++ 👍.
+## Install Via xmake
+
+[xmake](https://xmake.io/) is an amazing build utility for C/C++ 👍. If you use xmake in your project, you can paste the following configuration to your `xmake.lua`, then you can use `add_requires(structopt)` and `add_pacakges(structopt)` to add structopt to your project.
+
+```lua
+package("structopt")
+
+    set_kind("library", {headeronly = true})
+    set_homepage("https://github.com/v1nh1shungry/structopt")
+    set_description("A lovely structopt library for C++! Parse command line arguments by defining a struct! ❤️")
+
+    add_urls("https://github.com/v1nh1shungry/structopt.git")
+    add_versions("2022.7.29", "1ea5e6670b201c9210f7dddfbb80fbebad5ddbf6")
+
+    add_deps("cmdline")
+    add_deps("magic_enum")
+
+    on_install("linux", "mingw", function (package)
+      os.cp("include/structopt.hpp", package:installdir("include"))
+    end)
+
+    on_test(function (package)
+        assert(package:check_cxxsnippets({test = [[
+            #include <structopt.hpp>
+            static void test() {
+                struct Opt {
+                    structopt_option(host, std::string)
+                    {
+                        .description = "host name",
+                        .mandatory = true
+                    };
+                };
+                int argc = 1;
+                char arg[] = "./test";
+                char *argv = arg;
+                Opt opt = structopt::from(argc, &argv).to<Opt>();
+            }
+        ]]}, {configs = {languages = "c++20"}}))
+    end)
+
+package_end()
+```
+
+# Build & Run Examples
 
 1. You should first install xmake. Check more details about how to install it in your platform 👉 [Installation](https://xmake.io/#/guide/installation).
 
 2. Clone this project and just `xmake`!
 
-```bash
-git clone https://github.com/v1nh1shungry/structopt.git
-cd structopt
-xmake
-# then you've finished building
-# run the basic example without arguments
-xmake run basic
-# run it with arguments
-xmake run basic --host=github.com
-```
+   ```bash
+   git clone https://github.com/v1nh1shungry/structopt.git
+   cd structopt
+   xmake
+   # then you've finished building
+   # run the basic example without arguments
+   xmake run basic
+   # run it with arguments
+   xmake run basic --host=github.com
+   ```
 
 # Limitations
 
@@ -136,17 +206,21 @@ I have to admit that structopt is more an experimental project than a serious on
    * `bool`
    * `int`
    * `std::string`
+   * `enum`
 
-2. The `struct` used to define the command line arguments must be [Aggregate initialization](https://en.cppreference.com/w/cpp/language/aggregate_initialization). For short, **no user-declared constructors and no inheritance. Always use `structopt_option(name, type)` to add new option.**
+2. The `struct` used to define the command line arguments must be [Aggregate initializable](https://en.cppreference.com/w/cpp/language/aggregate_initialization). For short, **no user-declared constructors and no inheritance. Always use `structopt_option(name, type)` to add new option.**
 
 3. Because of the implementation, **there're at most 10 arguments**.
 
-4. For now structopt's parsing work is based on cmdline. And structopt doesn't add any new functions about parsing. So it can be seen as a wrapper of cmdline.
+4. For now structopt's parsing work is based on cmdline. And structopt doesn't add any new functions about parsing. So it is just a wrapper for cmdline.
+
+5. Since cmdline doesn't support msvc (https://github.com/tanakh/cmdline/issues/6) and structopt depends on it, structopt doesn't support msvc too. MinGW is okay.
 
 # Roadmap
 
-- [ ] `enum` support
+- [x] `enum` support
 - [ ] more arguments support
+- [ ] remove dependency on cmdline
 
 # Contributing
 
@@ -154,8 +228,12 @@ Contributions are welcome! ❤️
 
 # Acknowledgement
 
-structopt depends on or is inspired by the following projects. Great thanks! 👍
+structopt depends on the following projects. Great thanks! 👍
 
 * [xmake](https://xmake.io/)
 * [tanakh/cmdline](https://github.com/tanakh/cmdline)
+* [Neargye/magic_enum](https://github.com/Neargye/magic_enum)
+
+structopt is inspired by the following projects. 👍
 * [TeXitoi/structopt](https://github.com/TeXitoi/structopt)
+* [boostorg/pfr](https://github.com/boostorg/pfr)
