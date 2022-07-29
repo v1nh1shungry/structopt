@@ -167,6 +167,13 @@ struct Info {
   T default_value{};
 };
 
+template <>
+struct Info<bool> {
+  char short_alias = ' ';
+  std::string long_alias;
+  std::string description;
+};
+
 template <opt_type T>
 struct Opt {
   Info<T> info;
