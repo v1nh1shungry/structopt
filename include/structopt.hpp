@@ -5,6 +5,7 @@
 #include <tuple>
 #include <type_traits>
 #include <cmdline.h>
+#include <magic_enum.hpp>
 
 namespace structopt {
 
@@ -156,7 +157,8 @@ concept opt_type = is_any_of<T,
     bool,
     int,
     std::string
-  >;
+  >
+  || std::is_enum_v<T>;
 
 template <opt_type T>
 struct Info {
@@ -212,6 +214,16 @@ struct Parser {
       if constexpr (std::same_as<Arg, bool>) {
         parser.add(arg.info.long_alias, arg.info.short_alias, arg.info.description);
       }
+      else if constexpr (std::is_enum_v<Arg>) {
+        cmdline::oneof_reader<std::string> range;
+        auto names = magic_enum::enum_names<Arg>();
+        for (auto &&name: names) {
+          range.add(std::string{name});
+        }
+        parser.add<std::string>(arg.info.long_alias, arg.info.short_alias, arg.info.description,
+                                arg.info.mandatory, std::string{magic_enum::enum_name(arg.info.default_value)},
+                                range);
+      }
       else {
         parser.add<Arg>(arg.info.long_alias, arg.info.short_alias, arg.info.description,
                         arg.info.mandatory, arg.info.default_value);
@@ -224,6 +236,12 @@ struct Parser {
     auto get = [&parser]<typename Arg>(Opt<Arg> &arg) {
       if constexpr (std::same_as<Arg, bool>) {
         arg.value = parser.exist(arg.info.long_alias);
+      } else if constexpr (std::is_enum_v<Arg>) {
+        if (parser.exist(arg.info.long_alias)) {
+          arg.value = magic_enum::enum_cast<Arg>(parser.get<std::string>(arg.info.long_alias)).value();
+        } else {
+          arg.value = arg.info.default_value;
+        }
       }
       else {
         if (parser.exist(arg.info.long_alias)) {
