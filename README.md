@@ -216,6 +216,10 @@ I have to admit that structopt is more an experimental project than a serious on
 
 5. Since cmdline doesn't support msvc (https://github.com/tanakh/cmdline/issues/6) and structopt depends on it, structopt doesn't support msvc too. MinGW is okay.
 
+# Okay, how it works
+
+If you speak Chinese, please check out this blog post 👉 [把structopt抱回+](https://zhuanlan.zhihu.com/p/547960432)
+
 # Roadmap
 
 - [x] `enum` support
