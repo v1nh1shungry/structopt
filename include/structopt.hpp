@@ -268,6 +268,9 @@ detail::Parser from(int argc, char **argv) {
   return detail::Parser{ .argc = argc, .argv = argv };
 }
 
+// import magic_enum's APIs
+using namespace magic_enum;
+
 } // namespace structopt
 
 #define structopt_option(name, type) structopt::detail::Opt<type> name = structopt::detail::OptBuilder{ .short_alias = #name[0], .long_alias = #name } <= structopt::detail::Info<type>
