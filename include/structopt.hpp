@@ -264,7 +264,7 @@ struct Parser {
 
 } // namespace detail
 
-detail::Parser from(int argc, char **argv) {
+inline detail::Parser from(int argc, char **argv) {
   return detail::Parser{ .argc = argc, .argv = argv };
 }
 
