@@ -1,11 +1,11 @@
 #ifndef STRUCTOPT_HPP
 #define STRUCTOPT_HPP
 
+#include <cmdline.h>
+#include <magic_enum.hpp>
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <cmdline.h>
-#include <magic_enum.hpp>
 
 namespace structopt {
 
@@ -21,43 +21,20 @@ concept is_any_of = (std::same_as<T, U> || ...);
 template <typename T>
 concept aggregate = std::is_aggregate_v<T>;
 
-template <typename T, typename ... Args>
-concept aggregate_initializable = aggregate<T>
-  && requires { T{std::declval<Args>()...}; };
-
 // can convert to any types
 struct any {
   template <typename T>
   constexpr operator T() const noexcept;
 };
 
-template <std::size_t I>
-using indexed_any = any;
-
-template <aggregate T, typename Indices>
-struct aggregate_initializable_from_indices;
-
-template <aggregate T, std::size_t ... Indices>
-struct aggregate_initializable_from_indices<T, std::index_sequence<Indices...>>
-  : std::bool_constant<aggregate_initializable<T, indexed_any<Indices>...>> {};
-
-template <typename T, std::size_t N>
-concept aggregate_initializable_with_n_args = aggregate<T>
-  && aggregate_initializable_from_indices<T, std::make_index_sequence<N>>::value;
-
-template <aggregate T, std::size_t N, bool C>
-struct aggregate_field_count_impl
-  : aggregate_field_count_impl<T, N + 1, aggregate_initializable_with_n_args<T, N + 1>> {};
-
-template <aggregate T, std::size_t N>
-struct aggregate_field_count_impl<T, N, false>
-  : std::integral_constant<std::size_t, N - 1> {};
-
-template <aggregate T>
-struct aggregate_field_count : aggregate_field_count_impl<T, 0, true> {};
-
-template <aggregate T>
-constexpr inline std::size_t aggregate_field_count_v = aggregate_field_count<T>::value;
+// https://zhuanlan.zhihu.com/p/624028822
+template <class T>
+consteval std::size_t aggregate_field_count(auto &&...args) {
+  if constexpr (!requires{T{args...};})
+    return sizeof...(args) - 1;
+  else
+    return aggregate_field_count<T>(std::forward<decltype(args)>(args)..., any{});
+}
 
 // now the dirty and evil part
 // inspired by boost::pfr (https://github.com/boostorg/pfr)
@@ -67,11 +44,11 @@ struct size_tag {};
 
 template <typename T>
 auto tie_as_tuple(T &t) {
-  return tie_as_tuple(t, size_tag<aggregate_field_count_v<T>>{});
+  return tie_as_tuple(t, size_tag<aggregate_field_count<T>()>{});
 }
 
 template <typename T>
-auto tie_as_tuple(T &t, size_tag<0>) {
+auto tie_as_tuple(T &, size_tag<0>) {
   return std::tie();
 }
 
@@ -153,12 +130,7 @@ namespace detail {
 
 // supported structopt's option types
 template <typename T>
-concept opt_type = is_any_of<T,
-    bool,
-    int,
-    std::string
-  >
-  || std::is_enum_v<T>;
+concept opt_type = is_any_of<T, bool, int, std::string> || std::is_enum_v<T>;
 
 template <opt_type T>
 struct Info {
@@ -265,7 +237,7 @@ struct Parser {
 } // namespace detail
 
 inline detail::Parser from(int argc, char **argv) {
-  return detail::Parser{ .argc = argc, .argv = argv };
+  return detail::Parser{.argc = argc, .argv = argv};
 }
 
 // import magic_enum's APIs

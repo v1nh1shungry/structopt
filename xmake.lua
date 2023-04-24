@@ -1,17 +1,18 @@
 add_rules("mode.debug", "mode.release")
-
 add_requires("cmdline", "magic_enum")
+set_defaultmode('debug')
+
+local config = function()
+    add_includedirs("include")
+    add_packages("cmdline", "magic_enum")
+    set_languages("c++20")
+    set_warnings('allextra')
+end
 
 target("basic")
-    set_languages("c++20")
-    set_kind("binary")
-    add_packages("cmdline", "magic_enum")
-    add_includedirs("include")
     add_files("examples/basic.cpp")
+    config()
 
 target("enum")
-    set_languages("c++20")
-    set_kind("binary")
-    add_packages("cmdline", "magic_enum")
-    add_includedirs("include")
     add_files("examples/enum.cpp")
+    config()
